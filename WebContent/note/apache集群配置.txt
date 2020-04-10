@@ -1,0 +1,87 @@
+apache+tomcat集群，
+
+下载apache服务器工具
+https://www.apachehaus.com/cgi-bin/download.plx
+
+配置环境变量(可选)：
+path:D:\cluster\Apache24\bin
+	
+修改配置文件：
+	conf/httpd.conf
+		1.Define SRVROOT 修改为下载后的路劲
+		2.执行安装时若存在端口号被占用可修改：Listen 80	（80修改为新的端口）	
+
+cmd命令：
+	将apache注册到服务中：	"D:\cluster\Apache24\bin\httpd.exe" -k install -n apache24
+	删除注册的服务：		sc delete 服务名
+	启动服务：				httpd –k start
+	停止服务：				httpd –k stop
+	查看端口号：			netstat –ano
+		
+安装时报错：
+	问题：Could not reliably determine the server’s fully qualified domain name, using xxxx:xxxx:xxxx:ffff:68e3:fdd1. 
+Set the ‘ServerName’ directive globally to suppress this message
+	解决：在httpd.conf文件加上这句ServerName localhost:80，再重新执行命令httpd.exe -k install -n apache
+	
+如果安装后显示Errorsreported here must be corrected before the service can be started.表示安装成功，如果该句后面有错误信息，表示服务安装失败
+
+修改tomcat下server.xml文件
+	i.修改端口号：Server端口、http端口、ajp端口
+	ii.放开注释： <Cluster className="org.apache.catalina.ha.tcp.SimpleTcpCluster"/>
+	iii.Engine下新增：jvmRoute="服务名"
+		<Engine name="Catalina" defaultHost="localhost" jvmRoute="tomcat-a">
+
+配置mod_jk.so：
+	a.存放位置，\Apache24\modules\mod_jk.so
+	b.配置\Apache24\conf\workers.properties
+	c.下载路劲：http://archive.apache.org/dist/tomcat/tomcat-connectors/jk/binaries/windows/ 中的httpd.zip
+	
+配置workers.poperties文件
+	a.存放位置：\Apache24\conf\
+	b.配置模板：
+		worker.list=controller,tomcata,tomcatb,tomcatc
+		#tomcata
+		worker.tomcata.port=1009
+		worker.tomcata.host=localhost
+		worker.tomcata.type=ajp13
+		#负载均衡的权重
+		worker.tomcata.lbfactor=1
+
+
+		#tomcatb
+		worker.tomcatb.port=2009
+		worker.tomcatb.host=localhost
+		worker.tomcatb.type=ajp13
+		#负载均衡的权重
+		worker.tomcatb.lbfactor=2
+		#tomcatc
+		worker.tomcatc.port=3009
+		worker.tomcatc.host=localhost
+		worker.tomcatc.type=ajp13
+		#负载均衡的权重
+		worker.tomcatc.lbfactor=3
+
+		#controller
+		worker.controller.type=lb
+		worker.controller.balanced_workers=tomcata,tomcatb,tomcatc
+		worker.controller.sticky_session=false
+		
+配置mod_jk.conf文件，用于加载workers.properties和mod_jk.so文件
+	a.存放位置：\Apache24\conf\
+	b.配置模板：
+		#加载mod_jk_so
+		loadModule jk_module	modules/mod_jk.so
+		#加载workers.properties
+		JKWorkersFile conf/workers.properties
+		JkMount /* controller
+		
+配置httpd.conf文件，该文件在启动apache时自动加载，加载mod_jk.conf文件
+	增加：include \Apache24\conf\mod_jk.conf
+	
+
+	
+		
+
+
+
+

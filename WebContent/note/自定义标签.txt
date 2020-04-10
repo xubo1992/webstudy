@@ -1,0 +1,172 @@
+自定义标签
+
+
+1.步骤：a.编写标签处理类	b.编写标签描述符  c.导入并使用
+
+a.编写标签处理类
+	传统方式（JSP1.1）：实现javax.servlet.jsp.tagext.Tag接口		doStartTag()
+	简单方式（JSP2.0）：实现javax.servlet.jsp.tagext.SimpleTag接口   doTag()
+
+	如果jsp在编译阶段 发现了自定义标签<xx:yyy  >  ，就会交给doStartTag()或doTag()
+
+b.编写标签描述符  tld
+
+	编写建议：可以仿照一个 其他标签语言（el jstl  ） 的tld文件
+
+c.导入并使用
+	位置：myTag.tld导入 WEB-INF或子目录下WEB-INF/abc/	(特例排除，不能是WEB-INF/lib、WEB-INF/classes )
+	使用：
+		引入具体要使用的.tld文件 
+		<%@ taglib uri="..."  prefix="d"  %>
+	uri：每个tld文件的 唯一描述符
+	prefix：使用tld标签时 的前缀
+myTag1.tld
+myTag2.tld
+myTag3.tld
+
+	具体的使用：
+		a.空标签（没有标签体的标签）
+		<d:foreach></d:foreach>
+		<d:foreach />
+
+		b.带标签体
+		<d:foreach> xxx </d:foreach>
+		c.带属性
+		<d:foreach  属性名="属性值" > xxx </d:foreach>
+		<d:foreach  collection="${students}" > xxx </d:foreach>
+
+
+		d.嵌套
+			<d:foreach> 
+				<d:foreach> xxx </d:foreach>
+			 </d:foreach>
+<d:foreach>
+	xxx
+ <d:...>
+
+
+<%xxx%>
+
+
+实际开发步骤：
+a.编写标签处理类	
+	先确保项目有tomcat环境
+Tag接口：
+	doStartTag()：标签处理类的核心方法 （标签体的执行逻辑）
+		该方法有以下2个返回值：0/1
+    		int SKIP_BODY = 0;  标签体不会被执行
+   		int EVAL_BODY_INCLUDE = 1; 标签体会被执行
+	doEndTag()：标签执行完毕之后 的方法.例如可以让 标签在执行完毕后，再执行一次
+    		int SKIP_PAGE = 5;后面的JSP页面内容不被执行
+    		int EVAL_PAGE = 6;后面的JSP页面内容继续执行
+
+Tag接口中的所有方法执行顺序：
+jsp - servlet
+	当JSP容器（Tomcat、jetty）在将.jsp翻译成.servlet(.java)的时候 ,如果遇到JSP中有标签，
+	就会依次执行 setPageContext()  setParent()  doStartTag()  doEndTag  realease(),用于解析标签的执行逻辑。
+
+
+
+javax.servlet.jsp.tagext.IterationTag接口：（是Tag的子接口）
+如果有循环：IterationTag，
+没有循环：Tag
+IterationTag接口中存在以下方法：
+ 	doAfterBody()：当标签体执行完毕之后的操作 ，通过返回值决定 ：
+		（EVAL_BODY_AGAIN = 2）要么重复执行 ；
+		（SKIP_BODY=0）：要么不再执行
+目标：遍历3次 (hello)
+
+<xxx>hello<xxx>
+	执行一次，并重复两次
+
+
+b.编写标签描述符 
+	myTag.tld
+
+c.导入并使用
+	
+<%@ taglib uri="http://www.yanqun.com"  prefix="yq"  %>
+
+ ..
+  <body>
+    <yq:mytag num="3">
+      hello
+
+    </yq:mytag>
+  </body>
+
+
+jstl:   <c:foreach ....> </...> 使用
+	<yq:mytag num="3">  	处理类，tld,使用
+
+
+BoyTag接口：如果在标签体 被显示之前，进行一些其他的“额外”操作
+	hello hello hello -> HELLO HELLO HELLO
+	包含属性：
+	int EVAL_BODY_BUFFERED = 2， 是doStartTag()的第三个返回值 ，代表一个缓冲区（BodyContent）。
+
+
+BodyContent是abstract,具体使用时需要使用实现类 BodyContentImpl(再引入jasper.jar) 
+
+	
+缓冲区（BodyContent）的使用用途：hello ->HELLO
+	
+如果返回值是EVAL_BODY_BUFFERED ，则服务器会自动 将标签体需要显示的内容 放入缓冲区中（BodyContent）
+
+。因此，如果要更改最终显示结果，只需要从 缓冲区 获取原来的数据 进行修改即可。
+如何修改、获取 缓冲区：详见BodyContent的方法,具体就是 通过getXxx()获取原来的数据(hello),自己修改（HELLO）,输出getEnclosingWriter();
+
+a.编写标签处理类
+b.编写标签描述符  c.导入并使用
+
+
+
+
+简单方式
+SimpleTag
+最大的简化：
+将传统方式的doStartTag()  doEndTag() doafterBody()等方法 简化成了一个通用的 doTag()方法。
+
+ doTag() ：传统方式 可以对标签的最终显示 进行修改, hello ->HELLO  ,核心是有一个缓冲区。
+但是简单方式 没有“缓冲区”。 如何修改显示内容？ 流
+
+javax.servlet.jsp.tagext.JspFragment类 ：代表一块JSP元素（该块 不包含scriptlet,因此简单方式的tld文件中<body-content>不能是JSP ）
+
+
+JspFragment中有一个invoke(Writer var1) 方法，入参是 “流”，即如果要修改显示内容，只需要修改此 流
+
+invoke(Writer var1) ：每调用一次invoke()方法，会执行一次 标签体。
+
+SimpleTagSupport的 getJspBody()可以获取JspFragment对象。
+SimpleTagSupport的 getJspContext()方法 可以获取 jsp一些内置对象：getJspContext()的返回值是JspContext对象  是JSP内置对象的入口对象PageContext 的父类。
+
+简单标签方式 ，获取JSP内置对象：  getJspContext() -> JspContext ->转成子类PageContext ->PageContext就是所有JSP内置对象的入口，即可以获取一切JSP内置对象
+
+
+
+条件选择：
+	当某一个条件满足时，再执行某个标签体
+	传统标签：如果条件不满足，让doStartTag()的返回值为0；
+	简单标签(不允许写scriplet <% ...%>)：   如果条件不满足，不调用invoke()即可。
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	

@@ -4,18 +4,18 @@
 <head>
 <meta charset="UTF-8">
 <title>Insert title here</title>
-<script type="text/javascript" src="js/jquery-3.3.1.js"></script>
+<script type="text/javascript" src="../../js/jquery-3.3.1.js"></script>
 </head>
 <body>
 	<font>请输入验证码：</font><br/>
-	<a href="javascript:reload()"><img src="jsp/checkCode/img.jsp"></a>
+	<a href="javascript:reload()"><img src="img.jsp"></a>
 	<input type="text" id="code" maxlength="4" onblur="checkCode()">
 </body>
 <script type="text/javascript">
 	function checkCode(){
 		var code = $("#code").val();
 		$.ajax({
-			url:"CheckCodeServlet",
+			url:"<%=request.getContextPath()%>"+"/CheckCodeServlet",
 			type:"POST",
 			data:"code="+code,
 			success:function(result){
