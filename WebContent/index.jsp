@@ -8,7 +8,7 @@
 </head>
 <body>
 	<font>请输入验证码：</font><br/>
-	<a href="javascript:reload()"><img src="img.jsp"></a>
+	<a href="javascript:reload()"><img src="jsp/checkCode/img.jsp"></a>
 	<input type="text" id="code" maxlength="4" onblur="checkCode()">
 </body>
 <script type="text/javascript">
